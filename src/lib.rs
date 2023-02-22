@@ -98,6 +98,30 @@ impl<T> LURLinked<T> {
     }
 
     #[inline]
+    pub fn get(&self,key:usize)->Option<&T>{
+        if let Some(ref_current_ptr) = self.map.get(key) {
+            let current_pointer = *ref_current_ptr;
+            unsafe{
+               (*current_pointer).data.as_ref()
+            }
+        }else{
+            None
+        }
+    }
+
+    #[inline]
+    pub fn get_mut(&mut self,key:usize)->Option<&mut T>{
+        if let Some(ref_current_ptr) = self.map.get(key) {
+            let current_pointer = *ref_current_ptr;
+            unsafe{
+                (*current_pointer).data.as_mut()
+            }
+        }else{
+            None
+        }
+    }
+
+    #[inline]
     pub fn remove(&mut self, key: usize) -> Option<T> {
         if let Some(current_ptr) = self.map.try_remove(key) {
             unsafe {
@@ -174,6 +198,12 @@ pub struct Iter<'a, T> {
     len: usize,
 }
 
+pub struct IterMut<'a, T> {
+    entries: &'a Node<T>,
+    entries_back: &'a Node<T>,
+    len: usize,
+}
+
 impl<'a, T> Clone for Iter<'a, T> {
     fn clone(&self) -> Self {
         Self {
@@ -245,3 +275,72 @@ impl<T> ExactSizeIterator for Iter<'_, T> {
 }
 
 impl<T> FusedIterator for Iter<'_, T> {}
+
+impl<'a, T> Iterator for IterMut<'a, T> {
+    type Item = (usize, &'a mut T);
+    #[inline]
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            if let Some(ref next) = self.entries.next {
+                if self.len > 0 {
+                    self.entries = next.as_ref();
+                    self.len -= 1;
+                    if let Some(ref datum) = next.data {
+                        unsafe {
+                            let datum_ptr = datum as *const T as *mut T;
+                            return Some((next.key, &mut *datum_ptr));
+                        }
+                    }
+                }else{
+                    break;
+                }
+
+            } else {
+                break;
+            }
+        }
+        debug_assert_eq!(self.len, 0);
+        None
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (self.len, Some(self.len))
+    }
+}
+
+impl<T> DoubleEndedIterator for IterMut<'_, T> {
+    #[inline]
+    fn next_back(&mut self) -> Option<Self::Item> {
+        loop {
+            if let Some(next) = self.entries_back.prev {
+                if self.len > 0 {
+                    let next = unsafe { &*next };
+                    self.entries_back = next;
+                    self.len -= 1;
+                    if let Some(ref datum) = next.data {
+                        unsafe {
+                            let datum_ptr = datum as *const T as *mut T;
+                            return Some((next.key, &mut *datum_ptr));
+                        }
+                    }
+                } else {
+                    break;
+                }
+            } else {
+                break;
+            }
+        }
+
+        debug_assert_eq!(self.len, 0);
+        None
+    }
+}
+
+impl<T> ExactSizeIterator for IterMut<'_, T> {
+    #[inline]
+    fn len(&self) -> usize {
+        self.len
+    }
+}
+
+impl<T> FusedIterator for IterMut<'_, T> {}
