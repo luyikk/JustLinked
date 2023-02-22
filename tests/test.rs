@@ -63,6 +63,9 @@ fn lur_linked_move_front() {
     let tow = lur.push(2);
     let three = lur.push(3);
 
+    assert_eq!(lur.get(one), Some(&1));
+    assert_eq!(lur.get_mut(tow), Some(&mut 2));
+
     lur.move_front(three).unwrap();
     assert_eq!(lur.remove(three), Some(3));
     lur.shrink_to_fit();
@@ -114,6 +117,7 @@ fn lur_linked_remove_last() {
     lur.push(3);
     lur.clear();
     assert_eq!(lur.remove_last(), None);
+    lur.shrink_to_fit();
 }
 
 #[test]
@@ -206,6 +210,8 @@ fn test_iter_mut() {
     assert_eq!(iter.len(), 7);
     iter.next_back();
     assert_eq!(iter.len(), 6);
+
+    lur.clear();
 }
 
 #[test]
